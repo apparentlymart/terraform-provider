@@ -2,6 +2,7 @@ package tfprovider
 
 import (
 	"context"
+	"sync"
 
 	"go.rpcplugin.org/rpcplugin"
 	"google.golang.org/grpc"
@@ -21,10 +22,12 @@ func (c tfplugin5Client) ClientProxy(ctx context.Context, conn *grpc.ClientConn)
 }
 
 type tfplugin5Provider struct {
-	client     tfplugin5.ProviderClient
-	plugin     *rpcplugin.Plugin
-	schema     *Schema
-	configured bool
+	client tfplugin5.ProviderClient
+	plugin *rpcplugin.Plugin
+	schema *Schema
+
+	configured   bool
+	configuredMu *sync.Mutex
 }
 
 func newTfplugin5Provider(ctx context.Context, plugin *rpcplugin.Plugin, clientProxy interface{}) (*tfplugin5Provider, error) {
@@ -73,6 +76,51 @@ func (p *tfplugin5Provider) PrepareConfig(ctx context.Context, config cty.Value)
 	return Config{cty.DynamicVal}, diags
 }
 
+func (p *tfplugin5Provider) Configure(ctx context.Context, config Config) Diagnostics {
+	p.configuredMu.Lock()
+	defer p.configuredMu.Unlock()
+	if p.configured {
+		return Diagnostics{
+			{
+				Severity: Error,
+				Summary:  "Provider already configured",
+				Detail:   "This operation requires an unconfigured provider, but this provider was already configured.",
+			},
+		}
+	}
+
+	dv, diags := tfplugin5EncodeDynamicValue(config.Value, p.schema.ProviderConfig)
+	if diags.HasErrors() {
+		return diags
+	}
+	resp, err := p.client.Configure(ctx, &tfplugin5.Configure_Request{
+		Config: dv,
+	})
+	diags = append(diags, rpcErrorDiagnostics(err)...)
+	if err != nil {
+		return diags
+	}
+	diags = append(diags, tfplugin5Diagnostics(resp.Diagnostics)...)
+	if !diags.HasErrors() {
+		p.configured = true
+	}
+	return diags
+}
+
 func (p *tfplugin5Provider) Close() error {
 	return p.plugin.Close()
+}
+
+func (p *tfplugin5Provider) requireConfigured() Diagnostics {
+	p.configuredMu.Lock()
+	var diags Diagnostics
+	if !p.configured {
+		diags = append(diags, Diagnostic{
+			Severity: Error,
+			Summary:  "Provider unconfigured",
+			Detail:   "This operation requires a configured provider, but this provider isn't configured yet.",
+		})
+	}
+	p.configuredMu.Unlock()
+	return diags
 }

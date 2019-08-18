@@ -32,6 +32,14 @@ type Provider interface {
 	// diagnostics describing any problems with it.
 	PrepareConfig(ctx context.Context, config cty.Value) (Config, Diagnostics)
 
+	// Configure configures the provider using the given configuration.
+	//
+	// Each provider instance can be configured only once. If this method
+	// is called more than once, subsequent calls will return errors.
+	//
+	// The given Config must have been prepared using PrepareConfig.
+	Configure(ctx context.Context, config Config) Diagnostics
+
 	// Close kills the child process for this provider plugin, rendering the
 	// reciever unusable. Any further calls on the object after Close returns
 	// cause undefined behavior.
