@@ -2,10 +2,11 @@ package tfprovider
 
 import (
 	"fmt"
+	"strings"
 
 	grpcStatus "google.golang.org/grpc/status"
 
-	"github.com/apparentlymart/terraform-provider/tfprovider/tfattrs"
+	"github.com/zclconf/go-cty/cty"
 )
 
 type Diagnostics []Diagnostic
@@ -14,7 +15,7 @@ type Diagnostic struct {
 	Severity  DiagnosticSeverity
 	Summary   string
 	Detail    string
-	Attribute tfattrs.Path
+	Attribute cty.Path
 }
 
 type DiagnosticSeverity rune
@@ -34,6 +35,9 @@ func (diags Diagnostics) HasErrors() bool {
 }
 
 func rpcErrorDiagnostics(err error) Diagnostics {
+	if err == nil {
+		return nil
+	}
 	var diags Diagnostics
 	status, ok := grpcStatus.FromError(err)
 	if !ok {
@@ -50,4 +54,60 @@ func rpcErrorDiagnostics(err error) Diagnostics {
 		})
 	}
 	return diags
+}
+
+func errorDiagnostics(summary, detailPrefix string, err error) Diagnostics {
+	switch err := err.(type) {
+	case nil:
+		return nil
+	case cty.PathError:
+		return Diagnostics{
+			{
+				Severity:  Error,
+				Summary:   summary,
+				Detail:    fmt.Sprintf("%s: %s.", detailPrefix, err.Error()),
+				Attribute: err.Path,
+			},
+		}
+	default:
+		return Diagnostics{
+			{
+				Severity: Error,
+				Summary:  summary,
+				Detail:   fmt.Sprintf("%s: %s.", detailPrefix, err.Error()),
+			},
+		}
+	}
+
+}
+
+func formatError(err error) string {
+	switch err := err.(type) {
+	case cty.PathError:
+		return fmt.Sprintf("%s: %s", formatCtyPath(err.Path), err.Error())
+	default:
+		return err.Error()
+	}
+}
+
+func formatCtyPath(path cty.Path) string {
+	var buf strings.Builder
+	for _, step := range path {
+		switch step := step.(type) {
+		case cty.GetAttrStep:
+			buf.WriteString("." + step.Name)
+		case cty.IndexStep:
+			switch step.Key.Type() {
+			case cty.String:
+				fmt.Fprintf(&buf, "[%q]", step.Key.AsString())
+			case cty.Number:
+				fmt.Fprintf(&buf, "[%s]", step.Key.AsBigFloat().Text('f', 0))
+			default:
+				buf.WriteString("[...]")
+			}
+		default:
+			buf.WriteString("[...]")
+		}
+	}
+	return buf.String()
 }

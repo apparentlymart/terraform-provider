@@ -12,10 +12,12 @@ import (
 	"fmt"
 	"os/exec"
 
+	"github.com/zclconf/go-cty/cty"
 	"go.rpcplugin.org/rpcplugin"
 )
 
-// Provider represents a running provider plugin.
+// Provider represents a running provider plugin that hasn't
+// been configured yet.
 type Provider interface {
 	// We don't allow external implementations because this interface might
 	// grow in future versions if the Terraform provider API surface area
@@ -25,9 +27,17 @@ type Provider interface {
 	// Schema retrieves the full schema for the provider.
 	Schema(ctx context.Context) (*Schema, Diagnostics)
 
+	// PrepareConfig validates and normalizes an object representing a provider
+	// configuration, returning either the normalized object or error
+	// diagnostics describing any problems with it.
+	PrepareConfig(ctx context.Context, config cty.Value) (Config, Diagnostics)
+
 	// Close kills the child process for this provider plugin, rendering the
 	// reciever unusable. Any further calls on the object after Close returns
 	// cause undefined behavior.
+	//
+	// Calling Close also invalidates any associated Provider object that
+	// was created by calling Configure.
 	Close() error
 }
 
@@ -45,6 +55,11 @@ type DataResourceType interface {
 
 // Start executes the given command line as a Terraform provider plugin
 // and returns an object representing it.
+//
+// The provider is initially unconfigured, meaning that it can only be used
+// for object validation tasks. It must be configured (that is, it must be
+// provided with a valid configuration object) before it can take any
+// non-validation actions.
 //
 // Terraform providers run as child processes, so if this function returns
 // successfully there will be a new child process beneath the calling process
@@ -78,7 +93,7 @@ func Start(ctx context.Context, exe string, args ...string) (Provider, error) {
 
 	switch protoVersion {
 	case 5:
-		return newTfplugin5Provider(plugin, clientProxy), nil
+		return newTfplugin5Provider(ctx, plugin, clientProxy)
 	default:
 		// Should not be possible to get here because the above cases cover
 		// all of the versions we listed in ProtoVersions; rpcplugin bug?

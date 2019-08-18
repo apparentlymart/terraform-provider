@@ -18,3 +18,13 @@ type ManagedResourceTypeSchema struct {
 type DataResourceTypeSchema struct {
 	Content *tfschema.Block
 }
+
+func (s *Schema) HasManagedResourceType(name string) bool {
+	_, ok := s.ManagedResourceTypes[name]
+	return ok
+}
+
+func (s *Schema) HasDataResourceType(name string) bool {
+	_, ok := s.DataResourceTypes[name]
+	return ok
+}

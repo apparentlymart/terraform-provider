@@ -2,7 +2,7 @@ package tfprovider
 
 import (
 	"github.com/apparentlymart/terraform-provider/internal/tfplugin5"
-	"github.com/apparentlymart/terraform-provider/tfprovider/tfattrs"
+	"github.com/zclconf/go-cty/cty"
 )
 
 func tfplugin5Diagnostics(raws []*tfplugin5.Diagnostic) Diagnostics {
@@ -29,19 +29,19 @@ func tfplugin5Diagnostics(raws []*tfplugin5.Diagnostic) Diagnostics {
 	return diags
 }
 
-func tfplugin5AttributePath(raws *tfplugin5.AttributePath) tfattrs.Path {
+func tfplugin5AttributePath(raws *tfplugin5.AttributePath) cty.Path {
 	if raws == nil || len(raws.Steps) == 0 {
 		return nil
 	}
-	ret := make(tfattrs.Path, 0, len(raws.Steps))
+	ret := make(cty.Path, 0, len(raws.Steps))
 	for _, raw := range raws.Steps {
 		switch s := raw.GetSelector().(type) {
 		case *tfplugin5.AttributePath_Step_AttributeName:
-			ret = append(ret, tfattrs.Name(s.AttributeName))
+			ret = ret.GetAttr(s.AttributeName)
 		case *tfplugin5.AttributePath_Step_ElementKeyString:
-			ret = append(ret, tfattrs.MapKey(s.ElementKeyString))
+			ret = ret.Index(cty.StringVal(s.ElementKeyString))
 		case *tfplugin5.AttributePath_Step_ElementKeyInt:
-			ret = append(ret, tfattrs.ListIndex(s.ElementKeyInt))
+			ret = ret.Index(cty.NumberIntVal(s.ElementKeyInt))
 		default:
 			ret = append(ret, nil)
 		}
