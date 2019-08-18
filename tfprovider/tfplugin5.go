@@ -3,10 +3,10 @@ package tfprovider
 import (
 	"context"
 
-	"github.com/apparentlymart/terraform-provider/internal/tfplugin5"
-	"github.com/apparentlymart/terraform-provider/tfprovider/tfschema"
 	"go.rpcplugin.org/rpcplugin"
 	"google.golang.org/grpc"
+
+	"github.com/apparentlymart/terraform-provider/internal/tfplugin5"
 )
 
 // This file contains the Provider implementation and other related
@@ -33,27 +33,25 @@ func newTfplugin5Provider(plugin *rpcplugin.Plugin, clientProxy interface{}) *tf
 
 func (p *tfplugin5Provider) isProvider() {}
 
-func (p *tfplugin5Provider) Schema(ctx context.Context) (*tfschema.Provider, Diagnostics) {
+func (p *tfplugin5Provider) Schema(ctx context.Context) (*Schema, Diagnostics) {
 	resp, err := p.client.GetSchema(ctx, &tfplugin5.GetProviderSchema_Request{})
 	if err != nil {
 		return nil, rpcErrorDiagnostics(err)
 	}
 	diags := tfplugin5Diagnostics(resp.Diagnostics)
-	var ret tfschema.Provider
+	var ret Schema
 	ret.ProviderConfig = tfplugin5ProviderSchemaBlock(resp.Provider.Block)
-	ret.ManagedResourceTypes = make(map[string]*tfschema.ManagedResourceType)
+	ret.ManagedResourceTypes = make(map[string]*ManagedResourceTypeSchema)
 	for name, raw := range resp.ResourceSchemas {
-		block := tfplugin5ProviderSchemaBlock(raw.Block)
-		ret.ManagedResourceTypes[name] = &tfschema.ManagedResourceType{
+		ret.ManagedResourceTypes[name] = &ManagedResourceTypeSchema{
 			Version: raw.Version,
-			Content: *block,
+			Content: tfplugin5ProviderSchemaBlock(raw.Block),
 		}
 	}
-	ret.DataResourceTypes = make(map[string]*tfschema.DataResourceType)
+	ret.DataResourceTypes = make(map[string]*DataResourceTypeSchema)
 	for name, raw := range resp.DataSourceSchemas {
-		block := tfplugin5ProviderSchemaBlock(raw.Block)
-		ret.DataResourceTypes[name] = &tfschema.DataResourceType{
-			Content: *block,
+		ret.DataResourceTypes[name] = &DataResourceTypeSchema{
+			Content: tfplugin5ProviderSchemaBlock(raw.Block),
 		}
 	}
 	return &ret, diags

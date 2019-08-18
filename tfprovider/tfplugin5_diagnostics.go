@@ -2,7 +2,7 @@ package tfprovider
 
 import (
 	"github.com/apparentlymart/terraform-provider/internal/tfplugin5"
-	"github.com/apparentlymart/terraform-provider/tfprovider/tfschema"
+	"github.com/apparentlymart/terraform-provider/tfprovider/tfattrs"
 )
 
 func tfplugin5Diagnostics(raws []*tfplugin5.Diagnostic) Diagnostics {
@@ -29,19 +29,19 @@ func tfplugin5Diagnostics(raws []*tfplugin5.Diagnostic) Diagnostics {
 	return diags
 }
 
-func tfplugin5AttributePath(raws *tfplugin5.AttributePath) tfschema.AttributePath {
+func tfplugin5AttributePath(raws *tfplugin5.AttributePath) tfattrs.Path {
 	if raws == nil || len(raws.Steps) == 0 {
 		return nil
 	}
-	ret := make(tfschema.AttributePath, 0, len(raws.Steps))
+	ret := make(tfattrs.Path, 0, len(raws.Steps))
 	for _, raw := range raws.Steps {
 		switch s := raw.GetSelector().(type) {
 		case *tfplugin5.AttributePath_Step_AttributeName:
-			ret = append(ret, tfschema.AttributeName(s.AttributeName))
+			ret = append(ret, tfattrs.Name(s.AttributeName))
 		case *tfplugin5.AttributePath_Step_ElementKeyString:
-			ret = append(ret, tfschema.AttributeName(s.ElementKeyString))
+			ret = append(ret, tfattrs.MapKey(s.ElementKeyString))
 		case *tfplugin5.AttributePath_Step_ElementKeyInt:
-			ret = append(ret, tfschema.AttributeName(s.ElementKeyInt))
+			ret = append(ret, tfattrs.ListIndex(s.ElementKeyInt))
 		default:
 			ret = append(ret, nil)
 		}

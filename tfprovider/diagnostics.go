@@ -5,7 +5,7 @@ import (
 
 	grpcStatus "google.golang.org/grpc/status"
 
-	"github.com/apparentlymart/terraform-provider/tfprovider/tfschema"
+	"github.com/apparentlymart/terraform-provider/tfprovider/tfattrs"
 )
 
 type Diagnostics []Diagnostic
@@ -14,7 +14,7 @@ type Diagnostic struct {
 	Severity  DiagnosticSeverity
 	Summary   string
 	Detail    string
-	Attribute tfschema.AttributePath
+	Attribute tfattrs.Path
 }
 
 type DiagnosticSeverity rune

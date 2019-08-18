@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"os/exec"
 
-	"github.com/apparentlymart/terraform-provider/tfprovider/tfschema"
 	"go.rpcplugin.org/rpcplugin"
 )
 
@@ -24,7 +23,7 @@ type Provider interface {
 	isProvider()
 
 	// Schema retrieves the full schema for the provider.
-	Schema(ctx context.Context) (*tfschema.Provider, Diagnostics)
+	Schema(ctx context.Context) (*Schema, Diagnostics)
 
 	// Close kills the child process for this provider plugin, rendering the
 	// reciever unusable. Any further calls on the object after Close returns

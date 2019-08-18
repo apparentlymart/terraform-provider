@@ -1,21 +1,21 @@
 package tfprovider
 
 import (
+	"github.com/apparentlymart/terraform-schema-go/tfschema"
 	"github.com/zclconf/go-cty/cty"
 	ctyjson "github.com/zclconf/go-cty/cty/json"
 
 	"github.com/apparentlymart/terraform-provider/internal/tfplugin5"
-	"github.com/apparentlymart/terraform-provider/tfprovider/tfschema"
 )
 
-func tfplugin5ProviderSchemaBlock(raw *tfplugin5.Schema_Block) *tfschema.BlockType {
-	var ret tfschema.BlockType
+func tfplugin5ProviderSchemaBlock(raw *tfplugin5.Schema_Block) *tfschema.Block {
+	var ret tfschema.Block
 	if raw == nil {
 		return &ret
 	}
 
 	ret.Attributes = make(map[string]*tfschema.Attribute)
-	ret.NestedBlockTypes = make(map[string]*tfschema.NestedBlockType)
+	ret.BlockTypes = make(map[string]*tfschema.NestedBlock)
 
 	for _, rawAttr := range raw.Attributes {
 		rawType := rawAttr.Type
@@ -27,7 +27,6 @@ func tfplugin5ProviderSchemaBlock(raw *tfplugin5.Schema_Block) *tfschema.BlockTy
 		}
 
 		ret.Attributes[rawAttr.Name] = &tfschema.Attribute{
-			Name:        tfschema.AttributeName(rawAttr.Name),
 			Type:        ty,
 			Description: rawAttr.Description,
 
@@ -55,10 +54,9 @@ func tfplugin5ProviderSchemaBlock(raw *tfplugin5.Schema_Block) *tfschema.BlockTy
 
 		content := tfplugin5ProviderSchemaBlock(rawBlock.Block)
 
-		ret.NestedBlockTypes[rawBlock.TypeName] = &tfschema.NestedBlockType{
-			TypeName: tfschema.AttributeName(rawBlock.TypeName),
-			Nesting:  mode,
-			Content:  *content,
+		ret.BlockTypes[rawBlock.TypeName] = &tfschema.NestedBlock{
+			Nesting: mode,
+			Block:   *content,
 		}
 	}
 
