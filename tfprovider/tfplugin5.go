@@ -107,6 +107,38 @@ func (p *tfplugin5Provider) Configure(ctx context.Context, config Config) Diagno
 	return diags
 }
 
+func (p *tfplugin5Provider) ValidateManagedResourceConfig(ctx context.Context, typeName string, config cty.Value) Diagnostics {
+	dv, diags := tfplugin5EncodeDynamicValue(config, p.schema.ProviderConfig)
+	if diags.HasErrors() {
+		return diags
+	}
+	resp, err := p.client.ValidateResourceTypeConfig(ctx, &tfplugin5.ValidateResourceTypeConfig_Request{
+		Config: dv,
+	})
+	diags = append(diags, rpcErrorDiagnostics(err)...)
+	if err != nil {
+		return diags
+	}
+	diags = append(diags, tfplugin5Diagnostics(resp.Diagnostics)...)
+	return diags
+}
+
+func (p *tfplugin5Provider) ValidateDataResourceConfig(ctx context.Context, typeName string, config cty.Value) Diagnostics {
+	dv, diags := tfplugin5EncodeDynamicValue(config, p.schema.ProviderConfig)
+	if diags.HasErrors() {
+		return diags
+	}
+	resp, err := p.client.ValidateDataSourceConfig(ctx, &tfplugin5.ValidateDataSourceConfig_Request{
+		Config: dv,
+	})
+	diags = append(diags, rpcErrorDiagnostics(err)...)
+	if err != nil {
+		return diags
+	}
+	diags = append(diags, tfplugin5Diagnostics(resp.Diagnostics)...)
+	return diags
+}
+
 func (p *tfplugin5Provider) Close() error {
 	return p.plugin.Close()
 }

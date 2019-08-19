@@ -40,12 +40,20 @@ type Provider interface {
 	// The given Config must have been prepared using PrepareConfig.
 	Configure(ctx context.Context, config Config) Diagnostics
 
+	// ValidateManagedResourceConfig runs the provider's validation logic
+	// for a particular managed resource type.
+	ValidateManagedResourceConfig(ctx context.Context, typeName string, config cty.Value) Diagnostics
+
+	// ValidateDataResourceConfig runs the provider's validation logic
+	// for a particular managed resource type.
+	ValidateDataResourceConfig(ctx context.Context, typeName string, config cty.Value) Diagnostics
+
 	// Close kills the child process for this provider plugin, rendering the
 	// reciever unusable. Any further calls on the object after Close returns
 	// cause undefined behavior.
 	//
-	// Calling Close also invalidates any associated Provider object that
-	// was created by calling Configure.
+	// Calling Close also invalidates any associated objects such as
+	// resource type objects.
 	Close() error
 }
 
