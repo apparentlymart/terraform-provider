@@ -1,10 +1,10 @@
-// Terraform Plugin RPC protocol version 5.2
+// Terraform Plugin RPC protocol version 6.2
 //
-// This file defines version 5.2 of the RPC protocol. To implement a plugin
+// This file defines version 6.2 of the RPC protocol. To implement a plugin
 // against this protocol, copy this definition into your own codebase and
 // use protoc to generate stubs for your target language.
 //
-// This file will not be updated. Any minor versions of protocol 5 to follow
+// This file will not be updated. Any minor versions of protocol 6 to follow
 // should copy this file and modify the copy while maintaing backwards
 // compatibility. Breaking changes, if any are required, will come
 // in a subsequent major version with its own separate proto definition.
@@ -17,9 +17,9 @@
 // branch or any other development branch.
 //
 syntax = "proto3";
-option go_package = "github.com/hashicorp/terraform/internal/tfplugin5";
+option go_package = "github.com/hashicorp/terraform/internal/tfplugin6";
 
-package tfplugin5;
+package tfplugin6;
 
 // DynamicValue is an opaque encoding of terraform data, with the field name
 // indicating the encoding scheme used.
@@ -55,11 +55,11 @@ message AttributePath {
     repeated Step steps = 1;
 }
 
-message Stop {
+message StopProvider {
     message Request {
     }
     message Response {
-                string Error = 1;
+        string Error = 1;
     }
 }
 
@@ -76,7 +76,7 @@ enum StringKind {
     MARKDOWN = 1;
 }
 
-// Schema is the configuration schema for a Resource, Provider, or Provisioner.
+// Schema is the configuration schema for a Resource or Provider.
 message Schema {
     message Block {
         int64 version = 1;
@@ -90,6 +90,7 @@ message Schema {
     message Attribute {
         string name = 1;
         bytes type = 2;
+        Object nested_type = 10;
         string description = 3;
         bool required = 4;
         bool optional = 5;
@@ -116,9 +117,27 @@ message Schema {
         int64 max_items = 5;
     }
 
+    message Object {
+        enum NestingMode {
+            INVALID = 0;
+            SINGLE = 1;
+            LIST = 2;
+            SET = 3;
+            MAP = 4;
+        }
+
+        repeated Attribute attributes = 1;
+        NestingMode nesting = 3;
+
+        // MinItems and MaxItems were never used in the protocol, and have no
+        // effect on validation.
+        int64 min_items = 4 [deprecated = true];
+        int64 max_items = 5 [deprecated = true];
+    }
+
     // The version of the schema.
     // Schemas are versioned, so that providers can upgrade a saved resource
-    // state when the schema is changed. 
+    // state when the schema is changed.
     int64 version = 1;
 
     // Block is the top level configuration block for this schema.
@@ -127,14 +146,14 @@ message Schema {
 
 service Provider {
     //////// Information about what a provider supports/expects
-    rpc GetSchema(GetProviderSchema.Request) returns (GetProviderSchema.Response);
-    rpc PrepareProviderConfig(PrepareProviderConfig.Request) returns (PrepareProviderConfig.Response);
-    rpc ValidateResourceTypeConfig(ValidateResourceTypeConfig.Request) returns (ValidateResourceTypeConfig.Response);
-    rpc ValidateDataSourceConfig(ValidateDataSourceConfig.Request) returns (ValidateDataSourceConfig.Response);
+    rpc GetProviderSchema(GetProviderSchema.Request) returns (GetProviderSchema.Response);
+    rpc ValidateProviderConfig(ValidateProviderConfig.Request) returns (ValidateProviderConfig.Response);
+    rpc ValidateResourceConfig(ValidateResourceConfig.Request) returns (ValidateResourceConfig.Response);
+    rpc ValidateDataResourceConfig(ValidateDataResourceConfig.Request) returns (ValidateDataResourceConfig.Response);
     rpc UpgradeResourceState(UpgradeResourceState.Request) returns (UpgradeResourceState.Response);
 
     //////// One-time initialization, called before other functions below
-    rpc Configure(Configure.Request) returns (Configure.Response);
+    rpc ConfigureProvider(ConfigureProvider.Request) returns (ConfigureProvider.Response);
 
     //////// Managed Resource Lifecycle
     rpc ReadResource(ReadResource.Request) returns (ReadResource.Response);
@@ -145,7 +164,7 @@ service Provider {
     rpc ReadDataSource(ReadDataSource.Request) returns (ReadDataSource.Response);
 
     //////// Graceful Shutdown
-    rpc Stop(Stop.Request) returns (Stop.Response);
+    rpc StopProvider(StopProvider.Request) returns (StopProvider.Response);
 }
 
 message GetProviderSchema {
@@ -160,12 +179,11 @@ message GetProviderSchema {
     }
 }
 
-message PrepareProviderConfig {
+message ValidateProviderConfig {
     message Request {
         DynamicValue config = 1;
     }
     message Response {
-        DynamicValue prepared_config = 1;
         repeated Diagnostic diagnostics = 2;
     }
 }
@@ -197,7 +215,7 @@ message UpgradeResourceState {
     }
 }
 
-message ValidateResourceTypeConfig {
+message ValidateResourceConfig {
     message Request {
         string type_name = 1;
         DynamicValue config = 2;
@@ -207,7 +225,7 @@ message ValidateResourceTypeConfig {
     }
 }
 
-message ValidateDataSourceConfig {
+message ValidateDataResourceConfig {
     message Request {
         string type_name = 1;
         DynamicValue config = 2;
@@ -217,7 +235,7 @@ message ValidateDataSourceConfig {
     }
 }
 
-message Configure {
+message ConfigureProvider {
     message Request {
         string terraform_version = 1;
         DynamicValue config = 2;
@@ -247,16 +265,15 @@ message PlanResourceChange {
         DynamicValue prior_state = 2;
         DynamicValue proposed_new_state = 3;
         DynamicValue config = 4;
-        bytes prior_private = 5; 
+        bytes prior_private = 5;
         DynamicValue provider_meta = 6;
     }
 
     message Response {
         DynamicValue planned_state = 1;
         repeated AttributePath requires_replace = 2;
-        bytes planned_private = 3; 
+        bytes planned_private = 3;
         repeated Diagnostic diagnostics = 4;
-
 
         // This may be set only by the helper/schema "SDK" in the main Terraform
         // repository, to request that Terraform Core >=0.12 permit additional
@@ -279,12 +296,12 @@ message ApplyResourceChange {
         DynamicValue prior_state = 2;
         DynamicValue planned_state = 3;
         DynamicValue config = 4;
-        bytes planned_private = 5; 
+        bytes planned_private = 5;
         DynamicValue provider_meta = 6;
     }
     message Response {
         DynamicValue new_state = 1;
-        bytes private = 2; 
+        bytes private = 2;
         repeated Diagnostic diagnostics = 3;
 
         // This may be set only by the helper/schema "SDK" in the main Terraform
@@ -330,40 +347,4 @@ message ReadDataSource {
         DynamicValue state = 1;
         repeated Diagnostic diagnostics = 2;
     }
-}
-
-service Provisioner {
-    rpc GetSchema(GetProvisionerSchema.Request) returns (GetProvisionerSchema.Response);
-    rpc ValidateProvisionerConfig(ValidateProvisionerConfig.Request) returns (ValidateProvisionerConfig.Response);
-    rpc ProvisionResource(ProvisionResource.Request) returns (stream ProvisionResource.Response);
-    rpc Stop(Stop.Request) returns (Stop.Response);
-}
-
-message GetProvisionerSchema {
-    message Request {
-    }
-    message Response {
-        Schema provisioner = 1;
-        repeated Diagnostic diagnostics = 2;
-    }
-}
-
-message ValidateProvisionerConfig {
-    message Request {
-        DynamicValue config = 1;
-    }
-    message Response {
-        repeated Diagnostic diagnostics = 1;
-    }
-}
-
-message ProvisionResource {
-    message Request {
-        DynamicValue config = 1;
-        DynamicValue connection = 2;
-    }
-    message Response {
-        string output  = 1;
-        repeated Diagnostic diagnostics = 2;
-    }   
 }
