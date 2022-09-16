@@ -14,6 +14,7 @@ import (
 
 	"github.com/apparentlymart/terraform-provider/tfprovider/internal/common"
 	"github.com/apparentlymart/terraform-provider/tfprovider/internal/protocol5"
+	"github.com/apparentlymart/terraform-provider/tfprovider/internal/protocol6"
 	"github.com/zclconf/go-cty/cty"
 	"go.rpcplugin.org/rpcplugin"
 )
@@ -113,6 +114,7 @@ func Start(ctx context.Context, exe string, args ...string) (Provider, error) {
 		Cmd: exec.Command(exe, args...),
 		ProtoVersions: map[int]rpcplugin.ClientVersion{
 			5: protocol5.PluginClient{},
+			6: protocol6.PluginClient{},
 		},
 	})
 	if err != nil {
@@ -128,6 +130,8 @@ func Start(ctx context.Context, exe string, args ...string) (Provider, error) {
 	switch protoVersion {
 	case 5:
 		return protocol5.NewProvider(ctx, plugin, clientProxy)
+	case 6:
+		return protocol6.NewProvider(ctx, plugin, clientProxy)
 	default:
 		// Should not be possible to get here because the above cases cover
 		// all of the versions we listed in ProtoVersions; rpcplugin bug?
