@@ -12,11 +12,12 @@ import (
 	"fmt"
 	"os/exec"
 
+	"github.com/zclconf/go-cty/cty"
+	"go.rpcplugin.org/rpcplugin"
+
 	"github.com/apparentlymart/terraform-provider/tfprovider/internal/common"
 	"github.com/apparentlymart/terraform-provider/tfprovider/internal/protocol5"
 	"github.com/apparentlymart/terraform-provider/tfprovider/internal/protocol6"
-	"github.com/zclconf/go-cty/cty"
-	"go.rpcplugin.org/rpcplugin"
 )
 
 // Provider represents a running provider plugin.
@@ -33,6 +34,10 @@ type Provider interface {
 	//
 	// Each provider instance can be configured only once. If this method
 	// is called more than once, subsequent calls will return errors.
+	//
+	// Unless Configure returns error diagnostics, after it returns the caller
+	// may use other methods which are documented as requiring configuration
+	// first.
 	//
 	// The given Config must have been prepared using PrepareConfig.
 	Configure(ctx context.Context, config Config) Diagnostics
