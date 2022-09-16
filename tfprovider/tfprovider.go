@@ -50,6 +50,14 @@ type Provider interface {
 	// for a particular managed resource type.
 	ValidateDataResourceConfig(ctx context.Context, typeName string, config cty.Value) Diagnostics
 
+	// ManagedResourceType returns an object representing the managed resource
+	// type with the given name, or nil if the provider has no such managed
+	// resource type.
+	//
+	// The provider must be configured using [Configure] before calling this
+	// method. An unconfigured provider always returns nil.
+	ManagedResourceType(name string) ManagedResourceType
+
 	// Close kills the child process for this provider plugin, rendering the
 	// reciever unusable. Any further calls on the object after Close returns
 	// cause undefined behavior.
@@ -58,34 +66,6 @@ type Provider interface {
 	// resource type objects.
 	Close() error
 
-	// Sealed is a do-nothing method that exists only to represent that this
-	// interface may not be implemented by any type outside of this module,
-	// to allow the interface to expand in future to support new provider
-	// plugin protocol features.
-	Sealed() common.Sealed
-}
-
-// ManagedResourceType represents a managed resource type belonging to a
-// provider.
-//
-// This interface will grow in future versions of this module to support
-// new protocol features, so no packages outside of this module should attempt
-// to implement it.
-type ManagedResourceType interface {
-	// Sealed is a do-nothing method that exists only to represent that this
-	// interface may not be implemented by any type outside of this module,
-	// to allow the interface to expand in future to support new provider
-	// plugin protocol features.
-	Sealed() common.Sealed
-}
-
-// DataResourceType represents a data resource type (a data source) belonging
-// to a provider.
-//
-// This interface will grow in future versions of this module to support
-// new protocol features, so no packages outside of this module should attempt
-// to implement it.
-type DataResourceType interface {
 	// Sealed is a do-nothing method that exists only to represent that this
 	// interface may not be implemented by any type outside of this module,
 	// to allow the interface to expand in future to support new provider

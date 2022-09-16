@@ -29,3 +29,11 @@ const (
 // Config represents a provider configuration that has already been prepared
 // using Provider.PrepareConfig, ready to be passed to Configure.
 type Config = common.Config
+
+type ManagedResourceType = common.ManagedResourceType
+
+type DataResourceType = common.DataResourceType
+
+type ManagedResourceReadRequest = common.ManagedResourceReadRequest
+
+type ManagedResourceReadResponse = common.ManagedResourceReadResponse

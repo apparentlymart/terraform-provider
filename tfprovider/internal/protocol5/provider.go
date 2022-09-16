@@ -132,6 +132,24 @@ func (p *Provider) ValidateDataResourceConfig(ctx context.Context, typeName stri
 	return diags
 }
 
+func (p *Provider) ManagedResourceType(typeName string) common.ManagedResourceType {
+	p.configuredMu.Lock()
+	if !p.configured {
+		return nil
+	}
+	p.configuredMu.Unlock()
+
+	schema, ok := p.schema.ManagedResourceTypes[typeName]
+	if !ok {
+		return nil
+	}
+	return &ManagedResourceType{
+		client:   p.client,
+		typeName: typeName,
+		schema:   schema,
+	}
+}
+
 func (p *Provider) Close() error {
 	return p.plugin.Close()
 }
