@@ -1,4 +1,4 @@
-package tfprovider
+package common
 
 import (
 	"github.com/zclconf/go-cty/cty"

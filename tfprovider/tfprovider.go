@@ -2,9 +2,9 @@
 // API, allowing Go programs to call into Terraform provider plugins without
 // using code from Terraform itself.
 //
-// This package only implements Terraform provider protocol version 5. That
-// means it is only compatible with providers that are themselves compatible
-// with Terraform 0.12, where protocol version 5 was introduced.
+// This package currently implements clients for protocol versions 5 and 6.
+// In particular, that means it isn't compatible with provider plugins that
+// are only compatible with Terraform v0.11 and earlier.
 package tfprovider
 
 import (
@@ -12,18 +12,14 @@ import (
 	"fmt"
 	"os/exec"
 
+	"github.com/apparentlymart/terraform-provider/tfprovider/internal/common"
+	"github.com/apparentlymart/terraform-provider/tfprovider/internal/protocol5"
 	"github.com/zclconf/go-cty/cty"
 	"go.rpcplugin.org/rpcplugin"
 )
 
-// Provider represents a running provider plugin that hasn't
-// been configured yet.
+// Provider represents a running provider plugin.
 type Provider interface {
-	// We don't allow external implementations because this interface might
-	// grow in future versions if the Terraform provider API surface area
-	// also grows.
-	isProvider()
-
 	// Schema retrieves the full schema for the provider.
 	Schema(ctx context.Context) (*Schema, Diagnostics)
 
@@ -55,18 +51,40 @@ type Provider interface {
 	// Calling Close also invalidates any associated objects such as
 	// resource type objects.
 	Close() error
+
+	// Sealed is a do-nothing method that exists only to represent that this
+	// interface may not be implemented by any type outside of this module,
+	// to allow the interface to expand in future to support new provider
+	// plugin protocol features.
+	Sealed() common.Sealed
 }
 
 // ManagedResourceType represents a managed resource type belonging to a
 // provider.
+//
+// This interface will grow in future versions of this module to support
+// new protocol features, so no packages outside of this module should attempt
+// to implement it.
 type ManagedResourceType interface {
-	isManagedResourceType()
+	// Sealed is a do-nothing method that exists only to represent that this
+	// interface may not be implemented by any type outside of this module,
+	// to allow the interface to expand in future to support new provider
+	// plugin protocol features.
+	Sealed() common.Sealed
 }
 
 // DataResourceType represents a data resource type (a data source) belonging
 // to a provider.
+//
+// This interface will grow in future versions of this module to support
+// new protocol features, so no packages outside of this module should attempt
+// to implement it.
 type DataResourceType interface {
-	isDataResourceType()
+	// Sealed is a do-nothing method that exists only to represent that this
+	// interface may not be implemented by any type outside of this module,
+	// to allow the interface to expand in future to support new provider
+	// plugin protocol features.
+	Sealed() common.Sealed
 }
 
 // Start executes the given command line as a Terraform provider plugin
@@ -94,7 +112,7 @@ func Start(ctx context.Context, exe string, args ...string) (Provider, error) {
 		},
 		Cmd: exec.Command(exe, args...),
 		ProtoVersions: map[int]rpcplugin.ClientVersion{
-			5: tfplugin5Client{},
+			5: protocol5.PluginClient{},
 		},
 	})
 	if err != nil {
@@ -109,7 +127,7 @@ func Start(ctx context.Context, exe string, args ...string) (Provider, error) {
 
 	switch protoVersion {
 	case 5:
-		return newTfplugin5Provider(ctx, plugin, clientProxy)
+		return protocol5.NewProvider(ctx, plugin, clientProxy)
 	default:
 		// Should not be possible to get here because the above cases cover
 		// all of the versions we listed in ProtoVersions; rpcplugin bug?

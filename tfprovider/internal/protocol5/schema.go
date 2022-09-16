@@ -1,4 +1,4 @@
-package tfprovider
+package protocol5
 
 import (
 	"context"
@@ -10,9 +10,10 @@ import (
 	ctymsgpack "github.com/zclconf/go-cty/cty/msgpack"
 
 	"github.com/apparentlymart/terraform-provider/internal/tfplugin5"
+	"github.com/apparentlymart/terraform-provider/tfprovider/internal/common"
 )
 
-func tfplugin5ProviderSchemaBlock(raw *tfplugin5.Schema_Block) *tfschema.Block {
+func decodeProviderSchemaBlock(raw *tfplugin5.Schema_Block) *tfschema.Block {
 	var ret tfschema.Block
 	if raw == nil {
 		return &ret
@@ -56,7 +57,7 @@ func tfplugin5ProviderSchemaBlock(raw *tfplugin5.Schema_Block) *tfschema.Block {
 			mode = tfschema.NestingMap
 		}
 
-		content := tfplugin5ProviderSchemaBlock(rawBlock.Block)
+		content := decodeProviderSchemaBlock(rawBlock.Block)
 
 		ret.BlockTypes[rawBlock.TypeName] = &tfschema.NestedBlock{
 			Nesting: mode,
@@ -67,38 +68,38 @@ func tfplugin5ProviderSchemaBlock(raw *tfplugin5.Schema_Block) *tfschema.Block {
 	return &ret
 }
 
-func tfplugin5LoadSchema(ctx context.Context, client tfplugin5.ProviderClient) (*Schema, error) {
+func loadSchema(ctx context.Context, client tfplugin5.ProviderClient) (*common.Schema, error) {
 	resp, err := client.GetSchema(ctx, &tfplugin5.GetProviderSchema_Request{})
 	if err != nil {
 		return nil, err
 	}
-	diags := tfplugin5Diagnostics(resp.Diagnostics)
+	diags := decodeDiagnostics(resp.Diagnostics)
 	if diags.HasErrors() {
 		return nil, fmt.Errorf("failed to retrieve provider schema")
 	}
-	var ret Schema
-	ret.ProviderConfig = tfplugin5ProviderSchemaBlock(resp.Provider.Block)
-	ret.ManagedResourceTypes = make(map[string]*ManagedResourceTypeSchema)
+	var ret common.Schema
+	ret.ProviderConfig = decodeProviderSchemaBlock(resp.Provider.Block)
+	ret.ManagedResourceTypes = make(map[string]*common.ManagedResourceTypeSchema)
 	for name, raw := range resp.ResourceSchemas {
-		ret.ManagedResourceTypes[name] = &ManagedResourceTypeSchema{
+		ret.ManagedResourceTypes[name] = &common.ManagedResourceTypeSchema{
 			Version: raw.Version,
-			Content: tfplugin5ProviderSchemaBlock(raw.Block),
+			Content: decodeProviderSchemaBlock(raw.Block),
 		}
 	}
-	ret.DataResourceTypes = make(map[string]*DataResourceTypeSchema)
+	ret.DataResourceTypes = make(map[string]*common.DataResourceTypeSchema)
 	for name, raw := range resp.DataSourceSchemas {
-		ret.DataResourceTypes[name] = &DataResourceTypeSchema{
-			Content: tfplugin5ProviderSchemaBlock(raw.Block),
+		ret.DataResourceTypes[name] = &common.DataResourceTypeSchema{
+			Content: decodeProviderSchemaBlock(raw.Block),
 		}
 	}
 	return &ret, nil
 }
 
-func tfplugin5EncodeDynamicValue(val cty.Value, schema *tfschema.Block) (*tfplugin5.DynamicValue, Diagnostics) {
+func encodeDynamicValue(val cty.Value, schema *tfschema.Block) (*tfplugin5.DynamicValue, common.Diagnostics) {
 	ty := schema.ImpliedType()
 	raw, err := ctymsgpack.Marshal(val, ty)
 	if err != nil {
-		return nil, errorDiagnostics(
+		return nil, common.ErrorDiagnostics(
 			"Invalid object",
 			"Value does not have the required type",
 			err,
@@ -109,13 +110,13 @@ func tfplugin5EncodeDynamicValue(val cty.Value, schema *tfschema.Block) (*tfplug
 	}, nil
 }
 
-func tfplugin5DecodeDynamicValue(raw *tfplugin5.DynamicValue, schema *tfschema.Block) (cty.Value, Diagnostics) {
+func decodeDynamicValue(raw *tfplugin5.DynamicValue, schema *tfschema.Block) (cty.Value, common.Diagnostics) {
 	ty := schema.ImpliedType()
 	switch {
 	case len(raw.Json) > 0:
 		val, err := ctyjson.Unmarshal(raw.Json, ty)
 		if err != nil {
-			return cty.DynamicVal, errorDiagnostics(
+			return cty.DynamicVal, common.ErrorDiagnostics(
 				"Provider returned invalid object",
 				"Provider's JSON response does not conform to the expected type",
 				err,
@@ -125,7 +126,7 @@ func tfplugin5DecodeDynamicValue(raw *tfplugin5.DynamicValue, schema *tfschema.B
 	case len(raw.Msgpack) > 0:
 		val, err := ctymsgpack.Unmarshal(raw.Json, ty)
 		if err != nil {
-			return cty.DynamicVal, errorDiagnostics(
+			return cty.DynamicVal, common.ErrorDiagnostics(
 				"Provider returned invalid object",
 				"Provider's msgpack response does not conform to the expected type",
 				err,
@@ -133,9 +134,9 @@ func tfplugin5DecodeDynamicValue(raw *tfplugin5.DynamicValue, schema *tfschema.B
 		}
 		return val, nil
 	default:
-		return cty.DynamicVal, Diagnostics{
+		return cty.DynamicVal, common.Diagnostics{
 			{
-				Severity: Error,
+				Severity: common.Error,
 				Summary:  "Provider using unsupported response format",
 				Detail:   "Provider's response is not in either JSON or msgpack format",
 			},

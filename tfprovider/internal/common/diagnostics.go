@@ -1,4 +1,4 @@
-package tfprovider
+package common
 
 import (
 	"fmt"
@@ -34,7 +34,7 @@ func (diags Diagnostics) HasErrors() bool {
 	return false
 }
 
-func rpcErrorDiagnostics(err error) Diagnostics {
+func RPCErrorDiagnostics(err error) Diagnostics {
 	if err == nil {
 		return nil
 	}
@@ -56,7 +56,7 @@ func rpcErrorDiagnostics(err error) Diagnostics {
 	return diags
 }
 
-func errorDiagnostics(summary, detailPrefix string, err error) Diagnostics {
+func ErrorDiagnostics(summary, detailPrefix string, err error) Diagnostics {
 	switch err := err.(type) {
 	case nil:
 		return nil
@@ -81,16 +81,16 @@ func errorDiagnostics(summary, detailPrefix string, err error) Diagnostics {
 
 }
 
-func formatError(err error) string {
+func FormatError(err error) string {
 	switch err := err.(type) {
 	case cty.PathError:
-		return fmt.Sprintf("%s: %s", formatCtyPath(err.Path), err.Error())
+		return fmt.Sprintf("%s: %s", FormatCtyPath(err.Path), err.Error())
 	default:
 		return err.Error()
 	}
 }
 
-func formatCtyPath(path cty.Path) string {
+func FormatCtyPath(path cty.Path) string {
 	var buf strings.Builder
 	for _, step := range path {
 		switch step := step.(type) {

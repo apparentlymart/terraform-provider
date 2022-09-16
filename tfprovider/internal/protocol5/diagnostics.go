@@ -1,27 +1,28 @@
-package tfprovider
+package protocol5
 
 import (
 	"github.com/apparentlymart/terraform-provider/internal/tfplugin5"
+	"github.com/apparentlymart/terraform-provider/tfprovider/internal/common"
 	"github.com/zclconf/go-cty/cty"
 )
 
-func tfplugin5Diagnostics(raws []*tfplugin5.Diagnostic) Diagnostics {
+func decodeDiagnostics(raws []*tfplugin5.Diagnostic) common.Diagnostics {
 	if len(raws) == 0 {
 		return nil
 	}
-	diags := make(Diagnostics, 0, len(raws))
+	diags := make(common.Diagnostics, 0, len(raws))
 	for _, raw := range raws {
-		diag := Diagnostic{
+		diag := common.Diagnostic{
 			Summary:   raw.Summary,
 			Detail:    raw.Detail,
-			Attribute: tfplugin5AttributePath(raw.Attribute),
+			Attribute: decodeAttributePath(raw.Attribute),
 		}
 
 		switch raw.Severity {
 		case tfplugin5.Diagnostic_ERROR:
-			diag.Severity = Error
+			diag.Severity = common.Error
 		case tfplugin5.Diagnostic_WARNING:
-			diag.Severity = Warning
+			diag.Severity = common.Warning
 		}
 
 		diags = append(diags, diag)
@@ -29,7 +30,7 @@ func tfplugin5Diagnostics(raws []*tfplugin5.Diagnostic) Diagnostics {
 	return diags
 }
 
-func tfplugin5AttributePath(raws *tfplugin5.AttributePath) cty.Path {
+func decodeAttributePath(raws *tfplugin5.AttributePath) cty.Path {
 	if raws == nil || len(raws.Steps) == 0 {
 		return nil
 	}
