@@ -34,6 +34,8 @@ type ManagedResourceType = common.ManagedResourceType
 
 type DataResourceType = common.DataResourceType
 
+type ImportedResource = common.ImportedResource
+
 type ManagedResourceReadRequest = common.ManagedResourceReadRequest
 
 type ManagedResourceReadResponse = common.ManagedResourceReadResponse

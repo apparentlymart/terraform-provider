@@ -58,6 +58,11 @@ type Provider interface {
 	// method. An unconfigured provider always returns nil.
 	ManagedResourceType(name string) ManagedResourceType
 
+	// ImportManagedResourceState requests that the given resource be imported.
+	// It's possible for providers to import multiple related types with a single
+	// import request.
+	ImportManagedResourceState(ctx context.Context, typeName string, id string) ([]ImportedResource, Diagnostics)
+
 	// Close kills the child process for this provider plugin, rendering the
 	// reciever unusable. Any further calls on the object after Close returns
 	// cause undefined behavior.

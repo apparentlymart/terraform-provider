@@ -2,6 +2,8 @@ package common
 
 import (
 	"context"
+
+	"github.com/zclconf/go-cty/cty"
 )
 
 // ManagedResourceType represents a managed resource type belonging to a
@@ -35,4 +37,20 @@ type DataResourceType interface {
 	// to allow the interface to expand in future to support new provider
 	// plugin protocol features.
 	Sealed() Sealed
+}
+
+// ImportedResource represents an object being imported.
+type ImportedResource struct {
+	// TypeName is the name of the resource type associated with the
+	// returned state.
+	TypeName string
+
+	// State is the state of the remote object being imported. This may not be
+	// complete, but must contain enough information to uniquely identify the
+	// resource.
+	State cty.Value
+
+	// Private is an opaque blob that will be stored in state along with the
+	// resource. It is intended only for interpretation by the provider itself.
+	OpaquePrivate []byte
 }
