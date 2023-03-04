@@ -2,6 +2,7 @@ package protocol6
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/apparentlymart/terraform-provider/internal/tfplugin6"
@@ -33,10 +34,11 @@ func NewProvider(ctx context.Context, plugin *rpcplugin.Plugin, clientProxy inte
 	}
 
 	return &Provider{
-		client:     client,
-		plugin:     plugin,
-		schema:     schema,
-		configured: false,
+		client:       client,
+		plugin:       plugin,
+		schema:       schema,
+		configured:   false,
+		configuredMu: &sync.Mutex{},
 	}, nil
 }
 
@@ -139,6 +141,37 @@ func (p *Provider) ManagedResourceType(typeName string) common.ManagedResourceTy
 		typeName: typeName,
 		schema:   schema,
 	}
+}
+
+func (p *Provider) ImportManagedResourceState(ctx context.Context, typeName string, id string) ([]common.ImportedResource, common.Diagnostics) {
+	var diags common.Diagnostics
+	resp, err := p.client.ImportResourceState(ctx, &tfplugin6.ImportResourceState_Request{
+		TypeName: typeName,
+		Id:       id,
+	})
+	diags = append(diags, common.RPCErrorDiagnostics(err)...)
+	if err != nil {
+		return nil, diags
+	}
+	diags = append(diags, decodeDiagnostics(resp.Diagnostics)...)
+
+	var resources []common.ImportedResource
+	for _, raw := range resp.ImportedResources {
+		resource := common.ImportedResource{
+			TypeName:      raw.TypeName,
+			OpaquePrivate: raw.Private,
+		}
+		schema, ok := p.schema.ManagedResourceTypes[raw.TypeName]
+		if !ok {
+			diags = append(diags, common.RPCErrorDiagnostics(fmt.Errorf("unknown resource type %q", raw.TypeName))...)
+			continue
+		}
+		state, moreDiags := decodeDynamicValue(raw.State, schema.Content)
+		resource.State = state
+		diags = append(diags, moreDiags...)
+		resources = append(resources, resource)
+	}
+	return resources, diags
 }
 
 func (p *Provider) Close() error {

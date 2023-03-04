@@ -124,7 +124,7 @@ func decodeDynamicValue(raw *tfplugin5.DynamicValue, schema *tfschema.Block) (ct
 		}
 		return val, nil
 	case len(raw.Msgpack) > 0:
-		val, err := ctymsgpack.Unmarshal(raw.Json, ty)
+		val, err := ctymsgpack.Unmarshal(raw.Msgpack, ty)
 		if err != nil {
 			return cty.DynamicVal, common.ErrorDiagnostics(
 				"Provider returned invalid object",
